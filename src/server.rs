@@ -1,40 +1,65 @@
-use tonic::{transport::Server, Request, Response, Status};
+pub mod hello_world {
+    tonic::include_proto!("helloword");
+}
+
+use http::StatusCode;
 
 use hello_world::greeter_server::{Greeter, GreeterServer};
 use hello_world::{HelloReply, HelloRequest};
 
-pub mod hello_world {
-    tonic::include_proto!("helloword");
-}
+use tracing::{info};
+
+use opentelemetry_http::HeaderExtractor;
+
+use tracing_opentelemetry::OpenTelemetrySpanExt;
+
+use axum::{middleware::from_fn, Router};
+use fregate::Tonicable;
 
 #[derive(Debug, Default)]
 pub struct MyGreeter {}
 
 #[tonic::async_trait]
 impl Greeter for MyGreeter {
-    async fn say_hello(
-        &self,
-        request: Request<HelloRequest>,
-    ) -> Result<Response<HelloReply>, Status> {
-        println!("Got a request: {:?}", request);
-
+    #[tracing::instrument]
+    async fn say_hello( &self, request: tonic::Request<HelloRequest>) -> Result<tonic::Response<HelloReply>, tonic::Status> {
+        info!("Got a request: {:?}", request);
+        
         let reply = hello_world::HelloReply {
             message: format!("Hello {}!", request.into_inner().name).into(),
         };
 
-        Ok(Response::new(reply))
+        Ok(tonic::Response::new(reply))
     }
 }
 
+#[tracing::instrument]
+async fn middleware<B: std::fmt::Debug>(request: axum::http::Request<B>, _next: axum::middleware::Next<B>) -> Result<axum::response::Response, StatusCode>{
+    let parent_cx = opentelemetry::global::get_text_map_propagator(|propagator| {
+        propagator.extract(&HeaderExtractor(request.headers()))
+    });
+       
+    tracing::Span::current().set_parent(parent_cx);
+    Ok(_next.run(request).await)
+}
+
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "[::1]:50051".parse()?;
-    let greeter = MyGreeter::default();
+async fn main() -> hyper::Result<()> {
 
-    Server::builder()
-        .add_service(GreeterServer::new(greeter))
-        .serve(addr)
-        .await?;
+    let oplt = helloword_tonic::OpentelemetryTracer::new(Some("Server service"), None);
+    let _enter = oplt.m_span.enter();
+    {
+        let addr = &"[::1]:50051".parse().unwrap();
+        let greeter = MyGreeter::default();
+        let greeter_server = GreeterServer::new(greeter);
 
+        let grpc = Router::from_tonic_service(greeter_server)
+                                    .layer(from_fn(middleware));
+
+        let service = grpc.into_make_service();
+        axum::Server::bind(addr)
+            .serve(service)
+            .await?;
+    }
     Ok(())
 }

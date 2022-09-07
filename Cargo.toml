@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [[bin]] # Bin to run the HelloWorld gRPC server
-name = "helloword-server"
+name = "helloworld-server"
 path = "src/server.rs"
 
 [[bin]] # Bin to run the HelloWorld gRPC client
@@ -12,9 +12,26 @@ name = "helloworld-client"
 path = "src/client.rs"
 
 [dependencies]
-tonic = "0.7"
-prost = "0.10"
-tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+tonic = "0.8"
+prost = "0.11"
+tokio = { version = "1.20.0", features = ["full", "tracing"] }
+#tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+
+tracing = "0.1.16"
+tracing-subscriber = { version = "0.3.15", features = ["env-filter", "fmt", "json", "time", "tracing-log"] }
+tracing-attributes = "0.1.22"
+tracing-opentelemetry = "0.17.4"
+
+opentelemetry = { version = "0.17.0", features = ["rt-tokio", "rt-async-std", "trace"]}
+opentelemetry-otlp = { version = "0.10.0", features = ["grpc-sys"] }
+opentelemetry-http = "0.6.0"
+
+axum = { version = "0.5.7", features = ["headers", "http1", "http2", "json", "matched-path", "original-uri", "ws"] }
+tower = { version = "0.4", features = ["full"] }
+tower-http = { version = "0.3", features = ["full"] }
+hyper = { version = "0.14", features = ["full"] }
+http = "0.2.8"
+fregate = "0.2.5"
 
 [build-dependencies]
-tonic-build = "0.7"
+tonic-build = { version = "0.8", features = ["prost"] }
