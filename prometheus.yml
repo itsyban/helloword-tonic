@@ -1,0 +1,16 @@
+global:
+  external_labels:
+    origin_prometheus: prometheus01
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9091']
+
+#  - job_name: 'service-collector'
+#    static_configs:
+#      - targets: ['localhost:9000']
+remote_write:
+- url: https://prometheus-prod-01-eu-west-0.grafana.net/api/prom/push
+  basic_auth:
+    username: 505828
+    password: eyJrIjoiNDAzNzY3MmEzYzA4NjNmYmZjNWQwNDNmYzhlOTBiYmZlZmQ1ZjJjMSIsIm4iOiJNZXRyaWNzSWQiLCJpZCI6NjgwNzYyfQ==
